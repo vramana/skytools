@@ -7,14 +7,18 @@ import { db } from "./storage.server";
 import { state, session } from "~/db/schema";
 import { eq } from "drizzle-orm";
 
-const PUBLIC_URL = process.env.PUBLIC_URL || "http://localhost:5173";
+const PUBLIC_URL = process.env.PUBLIC_URL || "http://127.0.0.1:5173";
 
 export const client = new NodeOAuthClient({
   clientMetadata: {
     client_name: "Sky Tools",
-    client_id: `${PUBLIC_URL}/client-metadata.json`,
+    client_id: process.env.PUBLIC_URL
+      ? `${PUBLIC_URL}/client-metadata.json`
+      : `http://localhost?redirect_uri=${encodeURIComponent(
+          `${PUBLIC_URL}/oauth/callback`
+        )}`,
     client_uri: PUBLIC_URL,
-    redirect_uris: [`${PUBLIC_URL}/callback`],
+    redirect_uris: [`${PUBLIC_URL}/oauth/callback`],
     scope: "atproto transition:generic",
     grant_types: ["authorization_code", "refresh_token"],
     response_types: ["code"],
@@ -75,4 +79,3 @@ export const client = new NodeOAuthClient({
     },
   },
 });
-
