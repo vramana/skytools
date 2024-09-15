@@ -7,7 +7,7 @@
     "build": "remix vite:build",
     "dev": "remix vite:dev",
     "lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint .",
-    "debug": "NODE_OPTIONS=\"--trace-event-categories node.http\" remix vite:dev",
+    "debug": "NODE_OPTIONS=\"--inspect-brk=0.0.0.0\" remix vite:dev",
     "start": "remix-serve ./build/server/index.js",
     "typecheck": "tsc"
   },
@@ -18,6 +18,8 @@
     "@remix-run/node": "^2.12.0",
     "@remix-run/react": "^2.12.0",
     "@remix-run/serve": "^2.12.0",
+    "@remix-run/server-runtime": "^2.12.0",
+    "build": "^0.1.4",
     "drizzle-orm": "^0.33.0",
     "isbot": "^4.4.0",
     "pg": "^8.12.0",

@@ -3,40 +3,11 @@ import {
   type NodeSavedSession,
   NodeOAuthClient,
 } from "@atproto/oauth-client-node";
-import { peekJson } from "@atproto-labs/fetch";
 import { db } from "./storage.server";
 import { state, session } from "~/db/schema";
 import { eq } from "drizzle-orm";
 
-const PUBLIC_URL = process.env.PUBLIC_URL || "http://127.0.0.1:5173";
-
-export class SimpleStoreMemory<K extends string, V extends string> {
-  cache: Map<K, V>;
-
-  constructor() {
-    this.cache = new Map<K, V>();
-  }
-
-  get(key: K): V | undefined {
-    console.log("Getting nonce state", key);
-    return this.cache.get(key);
-  }
-
-  set(key: K, value: V): void {
-    console.log("Setting nonce state", key);
-    this.cache.set(key, value);
-  }
-
-  del(key: K): void {
-    this.cache.delete(key);
-  }
-
-  clear(): void {
-    this.cache.clear();
-  }
-}
-
-export const nonceStore = new SimpleStoreMemory<string, string>();
+const PUBLIC_URL = process.env.PUBLIC_URL || "http://127.0.0.1:3000";
 
 export const client = new NodeOAuthClient({
   clientMetadata: {
@@ -82,8 +53,6 @@ export const client = new NodeOAuthClient({
     },
   },
 
-  dpopNonceCache: nonceStore,
-
   // Interface to store authenticated session data
   sessionStore: {
     async set(sub: string, _session: NodeSavedSession): Promise<void> {
@@ -108,38 +77,5 @@ export const client = new NodeOAuthClient({
       console.log("Deleting session", sub);
       await db.delete(session).where(eq(session.key, sub)).execute();
     },
-  },
-  fetch: (...args: Parameters<typeof fetch>) => {
-    // @ts-expect-error
-    if (args[0].url.endsWith("/oauth/par")) {
-      // @ts-expect-error
-      console.log("Fetching headers", args[0].headers);
-    }
-    return fetch(...args)
-      .then(async (res) => {
-        // @ts-expect-error
-        if (args[0].url.endsWith("/oauth/par")) {
-          console.log("Response headers", res.headers);
-
-          if (res.status === 400) {
-            try {
-              const json = await peekJson(res, 10 * 1024);
-              console.log("Peeked JSON", json);
-              return res;
-            } catch (e) {
-              console.error(e);
-              return res;
-            }
-          }
-        }
-
-        return res;
-      })
-      .catch((error) => {
-        if ("response" in error) {
-          console.log("Error response", error.response);
-        }
-        throw error;
-      });
   },
 });
