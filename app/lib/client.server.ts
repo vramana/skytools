@@ -24,7 +24,7 @@ export const client = new NodeOAuthClient({
     response_types: ["code"],
     application_type: "web",
     token_endpoint_auth_method: "none",
-    dpop_bound_access_tokens: false,
+    dpop_bound_access_tokens: true,
   },
   stateStore: {
     async set(key: string, internalState: NodeSavedState): Promise<void> {

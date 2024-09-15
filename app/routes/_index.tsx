@@ -1,5 +1,10 @@
 import { isValidHandle } from "@atproto/syntax";
 import {
+  NodeOAuthClient,
+  type AuthorizeOptions,
+} from "@atproto/oauth-client-node";
+import { cli } from "@remix-run/dev";
+import {
   type MetaFunction,
   type ActionFunction,
   redirect,
@@ -18,6 +23,107 @@ export const meta: MetaFunction = () => {
   ];
 };
 
+async function authorize(
+  client: NodeOAuthClient,
+  input: string,
+  options?: AuthorizeOptions
+): Promise<URL> {
+  const redirectUri =
+    options?.redirect_uri ?? client.clientMetadata.redirect_uris[0];
+  if (!client.clientMetadata.redirect_uris.includes(redirectUri)) {
+    // The server will enforce client, but let's catch it early
+    throw new TypeError("Invalid redirect_uri");
+  }
+
+  const { identity, metadata } = await client.oauthResolver.resolve(
+    input,
+    options
+  );
+
+  console.log({ identity, metadata });
+
+  const pkce = await client.runtime.generatePKCE();
+  const dpopKey = await client.runtime.generateKey(
+    metadata.dpop_signing_alg_values_supported || []
+  );
+
+  const state = await client.runtime.generateNonce();
+
+  console.log({ pkce, dpopKey, state });
+
+  await client.stateStore.set(state, {
+    iss: metadata.issuer,
+    dpopKey,
+    verifier: pkce.verifier,
+    appState: options?.state,
+  });
+
+  const parameters = {
+    client_id: client.clientMetadata.client_id,
+    redirect_uri: redirectUri,
+    code_challenge: pkce.challenge,
+    code_challenge_method: pkce.method,
+    state,
+    login_hint: identity
+      ? input // If input is a handle or a DID, use it as a login_hint
+      : undefined,
+    response_mode: client.responseMode,
+    response_type:
+      // Negotiate by using the order in the client metadata
+      client.clientMetadata.response_types?.find((t) =>
+        metadata["response_types_supported"]?.includes(t)
+      ) ?? "code",
+
+    display: options?.display,
+    prompt: options?.prompt,
+    scope: options?.scope || undefined,
+    ui_locales: options?.ui_locales,
+  };
+
+  console.log({ parameters });
+
+  if (metadata.pushed_authorization_request_endpoint) {
+    const server = await client.serverFactory.fromMetadata(metadata, dpopKey);
+    console.log({ server });
+    const parResponse = await server.request(
+      "pushed_authorization_request",
+      parameters
+    );
+
+    console.log({ parResponse });
+
+    const authorizationUrl = new URL(metadata.authorization_endpoint);
+    authorizationUrl.searchParams.set(
+      "client_id",
+      client.clientMetadata.client_id
+    );
+    authorizationUrl.searchParams.set("request_uri", parResponse.request_uri);
+    return authorizationUrl;
+  } else if (metadata.require_pushed_authorization_requests) {
+    throw new Error(
+      "Server requires pushed authorization requests (PAR) but no PAR endpoint is available"
+    );
+  } else {
+    const authorizationUrl = new URL(metadata.authorization_endpoint);
+    for (const [key, value] of Object.entries(parameters)) {
+      if (value) authorizationUrl.searchParams.set(key, String(value));
+    }
+
+    // Length of the URL that will be sent to the server
+    const urlLength =
+      authorizationUrl.pathname.length + authorizationUrl.search.length;
+    if (urlLength < 2048) {
+      return authorizationUrl;
+    } else if (!metadata.pushed_authorization_request_endpoint) {
+      throw new Error("Login URL too long");
+    }
+  }
+
+  throw new Error(
+    "Server does not support pushed authorization requests (PAR)"
+  );
+}
+
 export const action: ActionFunction = async ({ request }) => {
   const formData = await request.formData();
   const handle = formData.get("handle") as string;
@@ -26,9 +132,8 @@ export const action: ActionFunction = async ({ request }) => {
     return json({ error: "Invalid handle" });
   }
 
-  const url = await client.authorize(handle, {
+  const url = await authorize(client, handle, {
     scope: "atproto transition:generic",
-    // redirect_uri: `${process.env.PUBLIC_URL}/callback`,
   });
   console.log(url);
   return redirect(url.toString());
