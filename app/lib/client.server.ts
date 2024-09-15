@@ -17,10 +17,13 @@ export class SimpleStoreMemory<K extends string, V extends string> {
   }
 
   get(key: K): V | undefined {
+    console.log("Getting nonce state", key);
     return this.cache.get(key);
   }
 
   set(key: K, value: V): void {
+    console.log("Setting nonce state", key);
+    console.trace();
     this.cache.set(key, value);
   }
 
