@@ -136,11 +136,12 @@ export const action: ActionFunction = async ({ request }) => {
     const url = await authorize(client, handle, {
       scope: "atproto transition:generic",
     });
+    console.log({ nonceStore: nonceStore.cache });
     console.log(url);
     return redirect(url.toString());
   } catch (e) {
     console.error(e);
-    console.log(nonceStore.cache);
+    console.log({ nonceStore: nonceStore.cache });
     return json({ error: (e as Error).message });
   }
 };
