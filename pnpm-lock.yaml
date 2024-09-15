@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@atproto-labs/fetch':
+        specifier: ^0.1.0
+        version: 0.1.0
       '@atproto/oauth-client-node':
         specifier: ^0.1.1
         version: 0.1.1

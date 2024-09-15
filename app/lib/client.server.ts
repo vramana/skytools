@@ -3,6 +3,7 @@ import {
   type NodeSavedSession,
   NodeOAuthClient,
 } from "@atproto/oauth-client-node";
+import { peekJson } from "@atproto-labs/fetch";
 import { db } from "./storage.server";
 import { state, session } from "~/db/schema";
 import { eq } from "drizzle-orm";
@@ -114,8 +115,20 @@ export const client = new NodeOAuthClient({
     // @ts-expect-error
     console.log("Fetching headers", args[0].headers);
     return fetch(...args)
-      .then((res) => {
+      .then(async (res) => {
         console.log("Response", res);
+
+        if (res.status === 400) {
+          try {
+            const json = await peekJson(res, 10 * 1024);
+            console.log("Peeked JSON", json);
+            return res;
+          } catch (e) {
+            console.error(e);
+            return res;
+          }
+        }
+
         return res;
       })
       .catch((error) => {
