@@ -9,6 +9,32 @@ import { eq } from "drizzle-orm";
 
 const PUBLIC_URL = process.env.PUBLIC_URL || "http://127.0.0.1:5173";
 
+export class SimpleStoreMemory<K extends string, V extends string> {
+  cache: Map<K, V>;
+
+  constructor() {
+    this.cache = new Map<K, V>();
+  }
+
+  get(key: K): V | undefined {
+    return this.cache.get(key);
+  }
+
+  set(key: K, value: V): void {
+    this.cache.set(key, value);
+  }
+
+  del(key: K): void {
+    this.cache.delete(key);
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+}
+
+export const nonceStore = new SimpleStoreMemory<string, string>();
+
 export const client = new NodeOAuthClient({
   clientMetadata: {
     client_name: "Sky Tools",
@@ -52,6 +78,8 @@ export const client = new NodeOAuthClient({
       await db.delete(state).where(eq(state.key, key)).execute();
     },
   },
+
+  dpopNonceCache: nonceStore,
 
   // Interface to store authenticated session data
   sessionStore: {

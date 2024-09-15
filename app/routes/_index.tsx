@@ -11,8 +11,7 @@ import {
   json,
 } from "@remix-run/node";
 import { Form, useActionData, useLoaderData } from "@remix-run/react";
-import { client } from "~/lib/client.server";
-import { db } from "~/lib/storage.server";
+import { client, nonceStore } from "~/lib/client.server";
 
 export const meta: MetaFunction = () => {
   return [
@@ -85,7 +84,7 @@ async function authorize(
 
   if (metadata.pushed_authorization_request_endpoint) {
     const server = await client.serverFactory.fromMetadata(metadata, dpopKey);
-    console.log({ server });
+    console.log({ server, dpopNonces: server.dpopNonces });
     const parResponse = await server.request(
       "pushed_authorization_request",
       parameters
@@ -126,32 +125,32 @@ async function authorize(
 }
 
 export const action: ActionFunction = async ({ request }) => {
-  const formData = await request.formData();
-  const handle = formData.get("handle") as string;
-  console.log(handle);
-  if (!isValidHandle(handle)) {
-    return json({ error: "Invalid handle" });
-  }
+  try {
+    const formData = await request.formData();
+    const handle = formData.get("handle") as string;
+    console.log(handle);
+    if (!isValidHandle(handle)) {
+      return json({ error: "Invalid handle" });
+    }
 
-  const url = await authorize(client, handle, {
-    scope: "atproto transition:generic",
-  });
-  console.log(url);
-  return redirect(url.toString());
+    const url = await authorize(client, handle, {
+      scope: "atproto transition:generic",
+    });
+    console.log(url);
+    return redirect(url.toString());
+  } catch (e) {
+    console.error(e);
+    console.log(nonceStore.cache);
+    return json({ error: (e as Error).message });
+  }
 };
 
 export const loader: LoaderFunction = async () => {
-  console.log("Loader");
-  const data = await db.query.state.findMany();
-
-  return json({ message: "Hello World", data });
+  return json({ message: "Hello World" });
 };
 
 export default function Index() {
-  const actionData = useActionData();
   const data = useLoaderData();
-
-  console.log(actionData);
 
   return (
     <div className="font-sans p-4">
