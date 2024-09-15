@@ -106,4 +106,20 @@ export const client = new NodeOAuthClient({
       await db.delete(session).where(eq(session.key, sub)).execute();
     },
   },
+  fetch: (...args: Parameters<typeof fetch>) => {
+    console.log("Fetching", args);
+    return fetch(...args)
+      .then((res) => {
+        console.log("Response", res);
+        console.log("Response headers", res.headers);
+        return res;
+      })
+      .catch((error) => {
+        if ("response" in error) {
+          console.log("Error response", error.response);
+          console.log("Error response headers", error.response.headers);
+        }
+        throw error;
+      });
+  },
 });

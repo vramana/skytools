@@ -219,6 +219,7 @@ export default function Index() {
           name="handle"
           placeholder="Bluesky Handle"
           value={"vramana.dev"}
+          readOnly
           required
         />
         <button

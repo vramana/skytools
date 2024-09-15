@@ -7,7 +7,7 @@
     "build": "remix vite:build",
     "dev": "remix vite:dev",
     "lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint .",
-    "debug": "NODE_OPTIONS=\"--inspect-brk=0.0.0.0\" remix vite:dev",
+    "debug": "NODE_OPTIONS=\"--trace-event-categories node.http\" remix vite:dev",
     "start": "remix-serve ./build/server/index.js",
     "typecheck": "tsc"
   },
