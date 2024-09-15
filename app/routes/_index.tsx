@@ -156,7 +156,6 @@ export default function Index() {
   return (
     <div className="font-sans p-4">
       <h1 className="text-3xl">Welcome to Sky Tools</h1>
-      <pre>{JSON.stringify(data, null, 2)}</pre>
       <Form className="flex flex-col gap-4 w-1/2" method="post">
         <input
           type="text"
@@ -172,6 +171,7 @@ export default function Index() {
           Log in
         </button>
       </Form>
+      <pre>{JSON.stringify(data, null, 2)}</pre>
     </div>
   );
 }
