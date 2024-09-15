@@ -10,7 +10,12 @@ import {
   redirect,
   json,
 } from "@remix-run/node";
-import { Form, useActionData, useLoaderData } from "@remix-run/react";
+import {
+  Form,
+  useActionData,
+  useLoaderData,
+  useNavigation,
+} from "@remix-run/react";
 import { client, nonceStore } from "~/lib/client.server";
 
 export const meta: MetaFunction = () => {
@@ -35,12 +40,14 @@ async function authorize(
     throw new TypeError("Invalid redirect_uri");
   }
 
+  let start = Date.now();
   const { identity, metadata } = await client.oauthResolver.resolve(
     input,
     options
   );
+  let end = Date.now();
 
-  console.log({ identity, metadata });
+  console.log({ identity, metadata, time: end - start });
 
   const pkce = await client.runtime.generatePKCE();
   const dpopKey = await client.runtime.generateKey(
@@ -89,6 +96,22 @@ async function authorize(
       "pushed_authorization_request",
       parameters
     );
+
+    const url2 = server.serverMetadata.pushed_authorization_request_endpoint;
+
+    const auth = await server.buildClientAuth("pushed_authorization_request");
+
+    console.log({
+      url2,
+      auth,
+      body: { ...parameters, ...auth.payload },
+    });
+
+    const { json: _json } = await server.dpopFetch(url2!, {
+      method: "POST",
+      headers: { ...auth.headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ ...parameters, ...auth.payload }),
+    });
 
     console.log({ parResponse });
 
@@ -152,6 +175,39 @@ export const loader: LoaderFunction = async () => {
 
 export default function Index() {
   const data = useLoaderData();
+  const navigation = useNavigation();
+  // transition.type === "actionSubmission"
+  const isActionSubmission = navigation.state === "submitting";
+
+  // transition.type === "actionReload"
+  const isActionReload =
+    navigation.state === "loading" &&
+    navigation.formMethod != null &&
+    navigation.formMethod != "GET" &&
+    // We had a submission navigation and are loading the submitted location
+    navigation.formAction === navigation.location.pathname;
+
+  // transition.type === "actionRedirect"
+  const isActionRedirect =
+    navigation.state === "loading" &&
+    navigation.formMethod != null &&
+    navigation.formMethod != "GET" &&
+    // We had a submission navigation and are now navigating to different location
+    navigation.formAction !== navigation.location.pathname;
+
+  // transition.type === "loaderSubmission"
+  const isLoaderSubmission =
+    navigation.state === "loading" &&
+    navigation.formMethod === "GET" &&
+    // We had a loader submission and are navigating to the submitted location
+    navigation.formAction === navigation.location.pathname;
+
+  // transition.type === "loaderSubmissionRedirect"
+  const isLoaderSubmissionRedirect =
+    navigation.state === "loading" &&
+    navigation.formMethod === "GET" &&
+    // We had a loader submission and are navigating to a new location
+    navigation.formAction !== navigation.location.pathname;
 
   return (
     <div className="font-sans p-4">
@@ -165,10 +221,32 @@ export default function Index() {
           required
         />
         <button
-          className="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 me-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
+          className="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5  
+ py-2.5 me-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
           type="submit"
+          disabled={isActionSubmission}
         >
-          Log in
+          {isActionSubmission ? (
+            <div className="flex items-center justify-center">
+              <svg
+                className="animate-spin  
+ h-5 w-5 text-white"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="fill-current"
+                  cx="12"
+                  cy="12"
+                  r="7"
+                  strokeLinecap="round"
+                  strokeWidth="2"
+                />
+              </svg>
+              <span className="ml-2">Loading...</span>
+            </div>
+          ) : (
+            "Log in"
+          )}
         </button>
       </Form>
       <pre>{JSON.stringify(data, null, 2)}</pre>
