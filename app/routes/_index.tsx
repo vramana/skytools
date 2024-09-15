@@ -1,21 +1,12 @@
 import { isValidHandle } from "@atproto/syntax";
 import {
-  NodeOAuthClient,
-  type AuthorizeOptions,
-} from "@atproto/oauth-client-node";
-import {
   type LoaderFunction,
   type MetaFunction,
   type ActionFunction,
   redirect,
   json,
 } from "@remix-run/node";
-import {
-  Form,
-  useActionData,
-  useLoaderData,
-  useNavigation,
-} from "@remix-run/react";
+import { Form, useLoaderData, useNavigation } from "@remix-run/react";
 import { client } from "~/lib/client.server";
 
 export const meta: MetaFunction = () => {
@@ -41,6 +32,7 @@ export const action: ActionFunction = async ({ request }) => {
     });
     return redirect(url.toString());
   } catch (e) {
+    console.error(e);
     return json({ error: (e as Error).message });
   }
 };
