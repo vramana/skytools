@@ -3,15 +3,16 @@ import {
   NodeOAuthClient,
   type AuthorizeOptions,
 } from "@atproto/oauth-client-node";
-import { cli } from "@remix-run/dev";
 import {
+  type LoaderFunction,
   type MetaFunction,
   type ActionFunction,
   redirect,
   json,
 } from "@remix-run/node";
-import { Form, useActionData } from "@remix-run/react";
+import { Form, useActionData, useLoaderData } from "@remix-run/react";
 import { client } from "~/lib/client.server";
+import { db } from "~/lib/storage.server";
 
 export const meta: MetaFunction = () => {
   return [
@@ -139,14 +140,23 @@ export const action: ActionFunction = async ({ request }) => {
   return redirect(url.toString());
 };
 
+export const loader: LoaderFunction = async () => {
+  console.log("Loader");
+  const data = await db.query.state.findMany();
+
+  return json({ message: "Hello World", data });
+};
+
 export default function Index() {
   const actionData = useActionData();
+  const data = useLoaderData();
 
   console.log(actionData);
 
   return (
     <div className="font-sans p-4">
       <h1 className="text-3xl">Welcome to Sky Tools</h1>
+      <pre>{JSON.stringify(data, null, 2)}</pre>
       <Form className="flex flex-col gap-4 w-1/2" method="post">
         <input
           type="text"
