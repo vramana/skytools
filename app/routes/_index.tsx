@@ -40,14 +40,10 @@ async function authorize(
     throw new TypeError("Invalid redirect_uri");
   }
 
-  let start = Date.now();
   const { identity, metadata } = await client.oauthResolver.resolve(
     input,
     options
   );
-  let end = Date.now();
-
-  console.log({ identity, metadata, time: end - start });
 
   const pkce = await client.runtime.generatePKCE();
   const dpopKey = await client.runtime.generateKey(
@@ -55,8 +51,6 @@ async function authorize(
   );
 
   const state = await client.runtime.generateNonce();
-
-  console.log({ pkce, dpopKey, state });
 
   await client.stateStore.set(state, {
     iss: metadata.issuer,
@@ -87,11 +81,8 @@ async function authorize(
     ui_locales: options?.ui_locales,
   };
 
-  console.log({ parameters });
-
   if (metadata.pushed_authorization_request_endpoint) {
     const server = await client.serverFactory.fromMetadata(metadata, dpopKey);
-    console.log({ server, dpopNonces: server.dpopNonces });
     const parResponse = await server.request(
       "pushed_authorization_request",
       parameters

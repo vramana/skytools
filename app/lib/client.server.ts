@@ -24,7 +24,6 @@ export class SimpleStoreMemory<K extends string, V extends string> {
 
   set(key: K, value: V): void {
     console.log("Setting nonce state", key);
-    console.trace();
     this.cache.set(key, value);
   }
 
@@ -111,21 +110,26 @@ export const client = new NodeOAuthClient({
     },
   },
   fetch: (...args: Parameters<typeof fetch>) => {
-    console.log("Fetching", args);
     // @ts-expect-error
-    console.log("Fetching headers", args[0].headers);
+    if (args[0].url.endsWith("/oauth/par")) {
+      // @ts-expect-error
+      console.log("Fetching headers", args[0].headers);
+    }
     return fetch(...args)
       .then(async (res) => {
-        console.log("Response", res);
+        // @ts-expect-error
+        if (args[0].url.endsWith("/oauth/par")) {
+          console.log("Response headers", res.headers);
 
-        if (res.status === 400) {
-          try {
-            const json = await peekJson(res, 10 * 1024);
-            console.log("Peeked JSON", json);
-            return res;
-          } catch (e) {
-            console.error(e);
-            return res;
+          if (res.status === 400) {
+            try {
+              const json = await peekJson(res, 10 * 1024);
+              console.log("Peeked JSON", json);
+              return res;
+            } catch (e) {
+              console.error(e);
+              return res;
+            }
           }
         }
 
