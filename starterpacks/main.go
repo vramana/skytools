@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -21,33 +22,69 @@ func saveMessage(db *sql.DB, did string, message string, time_us int64) {
 	}
 }
 
-func main() {
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt)
-
-	db, err := sql.Open("sqlite3", "/tmp/blootools.db")
+func storeStarterPack(db *sql.DB, message []byte) error {
+	var starterpack StarterPackCommit
+	err := json.Unmarshal(message, &starterpack)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
-	db.Exec("pragma journal_mode=wal")
+	saveMessage(db, starterpack.Did, string(message), starterpack.TimeUs)
+	return nil
+}
+
+func initDB() (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", "/tmp/blootools.db")
+	if err != nil {
+		return nil, err
+	}
 	_, err = db.Exec("CREATE TABLE IF NOT EXISTS starter_packs (did TEXT, message TEXT, time_us INTEGER)")
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	_, err = db.Exec("CREATE INDEX IF NOT EXISTS starter_packs_time_us ON starter_packs (time_us)")
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
+	return db, nil
+}
+
+func parseCommit(message []byte) (*JetstreamMessage, error) {
+	var d JetstreamMessage
+
+	err := json.Unmarshal(message, &d)
+	if err != nil {
+		return nil, err
+	}
+
+	if d.Kind != "commit" {
+		return nil, errors.New("not a commit")
+	}
+	return &d, nil
+}
+
+func updateAndPrintCursor(cursor, previousCursor int64) int64 {
+	if cursor > previousCursor+60*60*1000*1000 {
+		previousCursor = cursor
+		t := time.UnixMicro(cursor)
+		fmt.Println("New hour", t.Format(time.RFC3339))
+
+		return cursor
+	}
+
+	return previousCursor
+}
+
+func readCursor(db *sql.DB) int64 {
 	last_time_us := sql.NullInt64{}
 	cursor := int64(1725149758000000)
 	row := db.QueryRow("SELECT MAX(time_us) FROM starter_packs")
 	if row.Err() != nil {
 		panic(row.Err())
 	}
-	err = row.Scan(&last_time_us)
+	err := row.Scan(&last_time_us)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			panic(err)
@@ -55,6 +92,21 @@ func main() {
 	} else {
 		cursor = last_time_us.Int64 - 1000*1000
 	}
+
+	return cursor
+}
+
+func main() {
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt)
+
+	db, err := initDB()
+
+	if err != nil {
+		panic(err)
+	}
+
+	cursor := readCursor(db)
 
 	fmt.Println("Starting at", cursor)
 
@@ -73,7 +125,6 @@ func main() {
 	go func() {
 		defer close(done)
 		i := 0
-		previousCursor := int64(cursor)
 
 		for {
 			_, message, err := c.ReadMessage()
@@ -81,43 +132,20 @@ func main() {
 				log.Println("read:", err)
 				return
 			}
-			var d JetstreamMessage
 
-			err = json.Unmarshal(message, &d)
+			commit, err := parseCommit(message)
 			if err != nil {
-				log.Println("unmarshal:", err)
 				return
 			}
 
-			if d.Kind != "commit" {
-				continue
-			}
+			cursor = updateAndPrintCursor(commit.TimeUs, cursor)
 
-			if d.TimeUs > previousCursor+60*60*1000*1000 {
-				previousCursor = d.TimeUs
-				t := time.UnixMicro(d.TimeUs)
-				fmt.Println("New hour", t.Format(time.RFC3339))
-			}
-
-			var starterpack StarterPackCommit
-			err = json.Unmarshal(message, &starterpack)
+			err = storeStarterPack(db, message)
 			if err != nil {
-				var dd map[string]interface{}
-				err = json.Unmarshal(message, &dd)
-				if err != nil {
-					log.Println("unmarshal:", err)
-					return
-				}
-
-				data, _ := json.MarshalIndent(dd, "", "  ")
-				fmt.Println(string(data))
-
 				i++
-				fmt.Println("Failed to unmarshal", i, "messages")
+				fmt.Println("Failed to unmarshal", i, "message", string(message))
 				continue
 			}
-
-			saveMessage(db, starterpack.Did, string(message), d.TimeUs)
 		}
 	}()
 
