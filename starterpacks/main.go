@@ -52,6 +52,9 @@ func initDB() (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	db.Exec("pragma journal_mode=wal")
+
 	_, err = db.Exec("CREATE TABLE IF NOT EXISTS starter_packs (did TEXT, message TEXT, time_us INTEGER)")
 	if err != nil {
 		return nil, err
@@ -83,7 +86,7 @@ func updateAndPrintCursor(cursor, previousCursor int64) int64 {
 	if cursor > previousCursor+60*60*1000*1000 {
 		previousCursor = cursor
 		t := time.UnixMicro(cursor)
-		fmt.Println("New minute", t.Format(time.RFC3339))
+		fmt.Println("New hour", t.Format(time.RFC3339))
 
 		return cursor
 	}
@@ -149,8 +152,6 @@ func main() {
 			if err != nil {
 				continue
 			}
-
-			fmt.Println("Got message", commit)
 
 			cursor = updateAndPrintCursor(commit.TimeUs, cursor)
 
