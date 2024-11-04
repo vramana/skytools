@@ -69,7 +69,7 @@ func updateAndPrintCursor(cursor, previousCursor int64) int64 {
 	if cursor > previousCursor+60*60*1000*1000 {
 		previousCursor = cursor
 		t := time.UnixMicro(cursor)
-		fmt.Println("New hour", t.Format(time.RFC3339))
+		fmt.Println("New minute", t.Format(time.RFC3339))
 
 		return cursor
 	}
@@ -135,8 +135,10 @@ func main() {
 
 			commit, err := parseCommit(message)
 			if err != nil {
-				return
+				continue
 			}
+
+			fmt.Println("Got message", commit)
 
 			cursor = updateAndPrintCursor(commit.TimeUs, cursor)
 
