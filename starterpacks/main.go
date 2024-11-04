@@ -48,7 +48,7 @@ func initDB() (*sql.DB, error) {
 		dbPath = "/tmp/blootools.db"
 	}
 
-	db, err := sql.Open("sqlite3", "/tmp/blootools.db")
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return nil, err
 	}
