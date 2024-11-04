@@ -43,6 +43,11 @@ func storeStarterPack(db *sql.DB, message []byte) error {
 }
 
 func initDB() (*sql.DB, error) {
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		dbPath = "/tmp/blootools.db"
+	}
+
 	db, err := sql.Open("sqlite3", "/tmp/blootools.db")
 	if err != nil {
 		return nil, err
