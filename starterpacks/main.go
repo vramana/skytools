@@ -104,7 +104,9 @@ func readCursor(db *sql.DB) int64 {
 			panic(err)
 		}
 	} else {
-		cursor = last_time_us.Int64 - 1000*1000
+		if last_time_us.Valid {
+			cursor = last_time_us.Int64 - 1000*1000
+		}
 	}
 
 	return cursor
