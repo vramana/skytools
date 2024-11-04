@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -16,6 +17,12 @@ import (
 	"github.com/gorilla/websocket"
 	_ "github.com/mattn/go-sqlite3"
 )
+
+type CatchAll struct{}
+
+func (c CatchAll) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, "OK!")
+}
 
 func saveMessage(db *sql.DB, did string, message string, time_us int64) {
 	_, err := db.Exec("INSERT INTO starter_packs (did, message, time_us) VALUES (?, ?, ?)", did, message, time_us)
@@ -122,12 +129,8 @@ func main() {
 	}
 	defer c.Close()
 
-	done := make(chan struct{})
-
 	go func() {
-		defer close(done)
 		i := 0
-
 		for {
 			_, message, err := c.ReadMessage()
 			if err != nil {
@@ -153,25 +156,27 @@ func main() {
 		}
 	}()
 
+	r := mux.NewRouter()
+
+	r.PathPrefix("/").Handler(CatchAll{})
+
+	srv := &http.Server{
+		Handler: r,
+		Addr:    "127.0.0.1:3000",
+		// Good practice: enforce timeouts for servers you create!
+		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  15 * time.Second,
+	}
+
 	go func() {
-		r := mux.NewRouter()
-		srv := &http.Server{
-			Handler: r,
-			Addr:    "127.0.0.1:3000",
-			// Good practice: enforce timeouts for servers you create!
-			WriteTimeout: 15 * time.Second,
-			ReadTimeout:  15 * time.Second,
+		if err := srv.ListenAndServe(); err != nil {
+			log.Fatal(err)
 		}
-
-		log.Fatal(srv.ListenAndServe())
-
 	}()
 
-	for {
-		select {
-		case <-interrupt:
-			fmt.Println("Interrupted")
-			return
-		}
-	}
+	<-interrupt
+	srv.Shutdown(context.Background())
+
+	log.Println("shutting down")
+	os.Exit(0)
 }
