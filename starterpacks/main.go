@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -149,6 +151,20 @@ func main() {
 				continue
 			}
 		}
+	}()
+
+	go func() {
+		r := mux.NewRouter()
+		srv := &http.Server{
+			Handler: r,
+			Addr:    "127.0.0.1:3000",
+			// Good practice: enforce timeouts for servers you create!
+			WriteTimeout: 15 * time.Second,
+			ReadTimeout:  15 * time.Second,
+		}
+
+		log.Fatal(srv.ListenAndServe())
+
 	}()
 
 	for {
