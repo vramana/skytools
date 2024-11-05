@@ -31,53 +31,6 @@ func saveMessage(db *sql.DB, did string, message string, time_us int64) {
 	}
 }
 
-func storeStarterPack(db *sql.DB, message []byte) error {
-	var starterpack StarterPackCommit
-	err := json.Unmarshal(message, &starterpack)
-	if err != nil {
-		return err
-	}
-
-	saveMessage(db, starterpack.Did, string(message), starterpack.TimeUs)
-	return nil
-}
-
-func initDB() (*sql.DB, error) {
-	dbPath := os.Getenv("DB_PATH")
-	if dbPath == "" {
-		dbPath = "/tmp/skytools.db"
-	}
-
-	db, err := sql.Open("sqlite3", dbPath)
-	if err != nil {
-		return nil, err
-	}
-
-	db.Exec("pragma journal_mode=wal")
-
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS starter_packs (did TEXT, message TEXT, time_us INTEGER)")
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = db.Exec("CREATE INDEX IF NOT EXISTS starter_packs_time_us ON starter_packs (time_us)")
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS starter_pack_infos (uri TEXT, starter_pack TEXT, items TEXT, created_at INTEGER, updated_at INTEGER)")
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = db.Exec("CREATE INDEX IF NOT EXISTS starter_pack_infos_uri ON starter_pack_infos (uri)")
-	if err != nil {
-		return nil, err
-	}
-
-	return db, nil
-}
-
 func parseCommit(message []byte) (*JetstreamMessage, error) {
 	var d JetstreamMessage
 
@@ -104,40 +57,14 @@ func updateAndPrintCursor(cursor, previousCursor int64) int64 {
 	return previousCursor
 }
 
-func readCursor(db *sql.DB) int64 {
-	last_time_us := sql.NullInt64{}
-	cursor := int64(1725149758000000)
-	row := db.QueryRow("SELECT MAX(time_us) FROM starter_packs")
-	if row.Err() != nil {
-		panic(row.Err())
-	}
-	err := row.Scan(&last_time_us)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			panic(err)
-		}
-	} else {
-		if last_time_us.Valid {
-			cursor = last_time_us.Int64 - 1000*1000
-		}
-	}
-
-	return cursor
-}
-
 func main() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
-	db, err := initDB()
+	server := NewServer()
+	cursor := server.readCursor()
 
-	if err != nil {
-		panic(err)
-	}
-
-	cursor := readCursor(db)
-
-	fmt.Println("Starting at", cursor)
+	log.Println("Starting at", cursor)
 
 	c, _, err := websocket.DefaultDialer.Dial(
 		"wss://jetstream1.us-east.bsky.network/subscribe"+
@@ -165,7 +92,7 @@ func main() {
 
 			cursor = updateAndPrintCursor(commit.TimeUs, cursor)
 
-			err = storeStarterPack(db, message)
+			err = server.writeStarterPackCommit(message)
 			if err != nil {
 				i++
 				fmt.Println("Failed to unmarshal", i, "message", string(message))
