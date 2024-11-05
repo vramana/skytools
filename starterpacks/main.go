@@ -45,7 +45,7 @@ func storeStarterPack(db *sql.DB, message []byte) error {
 func initDB() (*sql.DB, error) {
 	dbPath := os.Getenv("DB_PATH")
 	if dbPath == "" {
-		dbPath = "/tmp/blootools.db"
+		dbPath = "/tmp/skytools.db"
 	}
 
 	db, err := sql.Open("sqlite3", dbPath)
@@ -61,6 +61,16 @@ func initDB() (*sql.DB, error) {
 	}
 
 	_, err = db.Exec("CREATE INDEX IF NOT EXISTS starter_packs_time_us ON starter_packs (time_us)")
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS starter_pack_infos (uri TEXT, starter_pack TEXT, items TEXT, created_at INTEGER, updated_at INTEGER)")
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = db.Exec("CREATE INDEX IF NOT EXISTS starter_pack_infos_uri ON starter_pack_infos (uri)")
 	if err != nil {
 		return nil, err
 	}
@@ -165,6 +175,8 @@ func main() {
 	}()
 
 	r := mux.NewRouter()
+
+	r.HandleFunc("/api/starter-packs", handleStarterPacks)
 
 	r.PathPrefix("/").Handler(CatchAll{})
 
