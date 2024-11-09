@@ -112,8 +112,16 @@ func main() {
 
 	go func() {
 		for {
-			starterPack := server.nextStarterPack()
-			fmt.Println("Next Starter Pack", starterPack)
+			starterPackUri := server.nextStarterPack()
+			fmt.Println("Next Starter Pack", starterPackUri)
+
+			_, _, err := fetchStarterPackDetails(starterPackUri)
+			if err != nil {
+				fmt.Println("Error fetching starter pack details", err)
+				continue
+			}
+
+			time.Sleep(time.Second * 1)
 		}
 	}()
 

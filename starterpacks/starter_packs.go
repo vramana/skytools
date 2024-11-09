@@ -176,6 +176,34 @@ func getListItems(listUri string) (*List, error) {
 	return &result, nil
 }
 
+func fetchStarterPackDetails(starterPackUri string) (*StarterPack, *List, error) {
+
+	resp, err := http.Get("https://public.api.bsky.app/xrpc/app.bsky.graph.getStarterPack?starterPack=" + starterPackUri)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var starterPack StarterPack
+	err = json.Unmarshal(body, &starterPack)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	listUri := starterPack.StarterPack.List.URI
+
+	list, err := getListItems(listUri)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return &starterPack, list, nil
+}
+
 func handleStarterPacks(w http.ResponseWriter, r *http.Request) {
 	starterPack := "at://did:plc:cwx2zxldt3uxciob3nxzhkzr/app.bsky.graph.starterpack/3l7cfdtapwz2l"
 
