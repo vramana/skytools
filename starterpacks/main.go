@@ -110,6 +110,13 @@ func main() {
 		}
 	}()
 
+	go func() {
+		for {
+			starterPack := server.nextStarterPack()
+			fmt.Println("Next Starter Pack", starterPack)
+		}
+	}()
+
 	<-interrupt
 	srv.Shutdown(context.Background())
 

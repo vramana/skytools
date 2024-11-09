@@ -98,6 +98,9 @@ func (server *Server) writeStarterPackCommit(message []byte) error {
 	server.cursor = updateAndPrintCursor(commit.TimeUs, server.cursor)
 	server.saveMessage(commit.Did, string(message), commit.TimeUs)
 
+	starterPackUri := "at://" + commit.Did + "/app.bsky.graph.starterpack/" + commit.Commit.Rkey
+	server.starterPackChan <- starterPackUri
+
 	return nil
 }
 
@@ -108,4 +111,11 @@ func (server *Server) saveMessage(did string, message string, time_us int64) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (server *Server) nextStarterPack() string {
+	starterPack := <-server.starterPackChan
+
+	return starterPack
+
 }
