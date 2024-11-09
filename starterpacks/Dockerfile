@@ -25,14 +25,16 @@ RUN --mount=type=cache,target=/go/pkg/mod/ \
 # Placing it here allows the previous steps to be cached across architectures.
 ARG TARGETARCH
 
+ENV GOCACHE=/root/.cache/go-build
+
 # Build the application.
 # Leverage a cache mount to /go/pkg/mod/ to speed up subsequent builds.
 # Leverage a bind mount to the current directory to avoid having to copy the
 # source code into the container.
 RUN --mount=type=cache,target=/go/pkg/mod/ \
     --mount=type=bind,target=. \
+    --mount=type=cache,target="/root/.cache/go-build" \
     CGO_ENABLED=1 GOARCH=$TARGETARCH go build -o /bin/server .
-
 
 # Expose the port that the application listens on.
 EXPOSE 3000
