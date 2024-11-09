@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,13 +21,6 @@ type CatchAll struct{}
 
 func (c CatchAll) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "OK!")
-}
-
-func saveMessage(db *sql.DB, did string, message string, time_us int64) {
-	_, err := db.Exec("INSERT INTO starter_packs (did, message, time_us) VALUES (?, ?, ?)", did, message, time_us)
-	if err != nil {
-		panic(err)
-	}
 }
 
 func parseCommit(message []byte) (*JetstreamMessage, error) {
@@ -62,14 +54,13 @@ func main() {
 	signal.Notify(interrupt, os.Interrupt)
 
 	server := NewServer()
-	cursor := server.readCursor()
 
-	log.Println("Starting at", cursor)
+	log.Println("Starting at", server.cursor)
 
 	c, _, err := websocket.DefaultDialer.Dial(
 		"wss://jetstream1.us-east.bsky.network/subscribe"+
 			"?wantedCollections=app.bsky.graph.starterpack&cursor="+
-			strconv.FormatInt(cursor, 10),
+			strconv.FormatInt(server.cursor, 10),
 		nil)
 	if err != nil {
 		log.Fatal("dial:", err)
@@ -85,12 +76,10 @@ func main() {
 				return
 			}
 
-			commit, err := parseCommit(message)
+			_, err = parseCommit(message)
 			if err != nil {
 				continue
 			}
-
-			cursor = updateAndPrintCursor(commit.TimeUs, cursor)
 
 			err = server.writeStarterPackCommit(message)
 			if err != nil {

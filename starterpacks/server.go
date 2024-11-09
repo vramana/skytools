@@ -4,10 +4,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"os"
+	"sync"
 )
 
 type Server struct {
-	db *sql.DB
+	db              *sql.DB
+	mu              sync.Mutex
+	cursor          int64
+	starterPackChan chan string
 }
 
 func initDB() (*sql.DB, error) {
@@ -52,13 +56,20 @@ func NewServer() *Server {
 		panic(err)
 	}
 
-	return &Server{db}
+	cursor := readCursor(db)
+
+	return &Server{
+		db,
+		sync.Mutex{},
+		cursor,
+		make(chan string),
+	}
 }
 
-func (s *Server) readCursor() int64 {
+func readCursor(db *sql.DB) int64 {
 	last_time_us := sql.NullInt64{}
 	cursor := int64(1725149758000000)
-	row := s.db.QueryRow("SELECT MAX(time_us) FROM starter_packs")
+	row := db.QueryRow("SELECT MAX(time_us) FROM starter_packs")
 	if row.Err() != nil {
 		panic(row.Err())
 	}
@@ -78,11 +89,23 @@ func (s *Server) readCursor() int64 {
 
 func (server *Server) writeStarterPackCommit(message []byte) error {
 	var commit StarterPackCommit
+
 	err := json.Unmarshal(message, &commit)
 	if err != nil {
 		return err
 	}
 
-	saveMessage(server.db, commit.Did, string(message), commit.TimeUs)
+	server.cursor = updateAndPrintCursor(commit.TimeUs, server.cursor)
+	server.saveMessage(commit.Did, string(message), commit.TimeUs)
+
 	return nil
+}
+
+func (server *Server) saveMessage(did string, message string, time_us int64) {
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	_, err := server.db.Exec("INSERT INTO starter_packs (did, message, time_us) VALUES (?, ?, ?)", did, message, time_us)
+	if err != nil {
+		panic(err)
+	}
 }
