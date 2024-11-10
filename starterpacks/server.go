@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"sync"
+	"time"
 )
 
 type Server struct {
@@ -37,12 +38,7 @@ func initDB() (*sql.DB, error) {
 		return nil, err
 	}
 
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS starter_pack_infos (uri TEXT, starter_pack TEXT, items TEXT, created_at INTEGER, updated_at INTEGER)")
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = db.Exec("CREATE INDEX IF NOT EXISTS starter_pack_infos_uri ON starter_pack_infos (uri)")
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS starter_pack_infos (uri TEXT PRIMARY KEY, starter_pack TEXT, items TEXT, created_at INTEGER, updated_at INTEGER)")
 	if err != nil {
 		return nil, err
 	}
@@ -118,4 +114,32 @@ func (server *Server) nextStarterPack() string {
 
 	return starterPack
 
+}
+
+func (server *Server) writeStarterPackInfo(starterPack *StarterPack, list *List) error {
+  server.mu.Lock()
+  defer server.mu.Unlock()
+	statement :=
+		`INSERT INTO starter_pack_infos (uri, starter_pack, items, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(uri) DO UPDATE SET
+      starter_pack = excluded.starter_pack,
+      items = excluded.items,
+      updated_at = excluded.updated_at;`
+
+	starterPackString, err := json.Marshal(starterPack)
+	if err != nil {
+		return err
+	}
+	listString, err := json.Marshal(list)
+	if err != nil {
+		return err
+	}
+
+	_, err = server.db.Exec(statement, starterPack.StarterPack.URI, starterPackString, listString, time.Now().UnixMicro(), time.Now().UnixMicro())
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

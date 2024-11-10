@@ -115,9 +115,14 @@ func main() {
 			starterPackUri := server.nextStarterPack()
 			fmt.Println("Next Starter Pack", starterPackUri)
 
-			_, _, err := fetchStarterPackDetails(starterPackUri)
+			starterPack, list, err := fetchStarterPackDetails(starterPackUri)
 			if err != nil {
 				fmt.Println("Error fetching starter pack details", err)
+				continue
+			}
+			err = server.writeStarterPackInfo(starterPack, list)
+			if err != nil {
+				fmt.Println("Error writing starter pack info", err)
 				continue
 			}
 
