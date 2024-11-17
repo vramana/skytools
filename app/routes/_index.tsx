@@ -48,6 +48,7 @@ export default function Index() {
   const isActionSubmission = navigation.state === "submitting";
 
   // transition.type === "actionReload"
+  // eslint-disable-next-line
   const isActionReload =
     navigation.state === "loading" &&
     navigation.formMethod != null &&
@@ -56,6 +57,7 @@ export default function Index() {
     navigation.formAction === navigation.location.pathname;
 
   // transition.type === "actionRedirect"
+  // eslint-disable-next-line
   const isActionRedirect =
     navigation.state === "loading" &&
     navigation.formMethod != null &&
@@ -64,6 +66,7 @@ export default function Index() {
     navigation.formAction !== navigation.location.pathname;
 
   // transition.type === "loaderSubmission"
+  // eslint-disable-next-line
   const isLoaderSubmission =
     navigation.state === "loading" &&
     navigation.formMethod === "GET" &&
@@ -71,6 +74,7 @@ export default function Index() {
     navigation.formAction === navigation.location.pathname;
 
   // transition.type === "loaderSubmissionRedirect"
+  // eslint-disable-next-line
   const isLoaderSubmissionRedirect =
     navigation.state === "loading" &&
     navigation.formMethod === "GET" &&
